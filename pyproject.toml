@@ -1,0 +1,140 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yandex-drf-mixins"
+version = "0.1.1"
+description = "Reusable synchronous and asynchronous mixins for Django REST Framework"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICES"]
+authors = [{name = "Sergey Bochkarev"}]
+classifiers = [
+    "Framework :: Django",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = [
+    "Django>=4.0,<5.2",
+    "djangorestframework>=3.14,<3.16",
+]
+
+[project.optional-dependencies]
+adrf = ["adrf>=0.1.7,<0.2"]
+dev = [
+    "adrf>=0.1.7,<0.2",
+    "bandit>=1.7.10,<2",
+    "black>=24.10,<26",
+    "build>=1.2,<2",
+    "django-stubs>=5.1,<6",
+    "djangorestframework-stubs>=3.15,<4",
+    "flake8>=7.1,<8",
+    "flake8-builtins>=2.5,<3",
+    "flake8-bugbear>=24.10,<25",
+    "flake8-comprehensions>=3.15,<4",
+    "flake8-isort>=6.1,<7",
+    "flake8-print>=5,<6",
+    "flake8-pyproject>=1.2,<2",
+    "isort>=5.13,<6",
+    "mypy>=1.13,<2",
+    "pep8-naming>=0.14,<1",
+    "pylint>=3.3,<4",
+    "pylint-django>=2.6,<3",
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=0.24,<1",
+    "pytest-django>=4.9,<5",
+]
+
+[project.urls]
+Repository = "https://github.com/yandex/drf-mixins"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+yandex_drf_mixins = [
+    "py.typed",
+    "locale/*/LC_MESSAGES/*.mo",
+    "locale/*/LC_MESSAGES/*.po",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+testpaths = ["tests"]
+
+[tool.black]
+line-length = 120
+# Formatting against the oldest supported grammar keeps the source importable
+# throughout the complete Python 3.10–3.13 range.
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+known_first_party = ["tests", "yandex_drf_mixins"]
+
+[tool.flake8]
+max-line-length = 120
+extend-ignore = ["E203", "W503"]
+exclude = [".build", ".pytest_cache", "dist", "venv"]
+
+[tool.mypy]
+python_version = "3.10"
+plugins = ["mypy_django_plugin.main"]
+strict = true
+warn_unused_configs = true
+exclude = ["tests"]
+explicit_package_bases = true
+mypy_path = "src"
+# DRF mixins are intentionally composed with view classes by consumers. Their
+# required attributes therefore exist only after MRO composition and cannot be
+# expressed by the third-party stubs without changing the runtime inheritance.
+disable_error_code = ["attr-defined", "assignment", "misc", "no-any-return", "type-arg"]
+
+[[tool.mypy.overrides]]
+module = ["adrf.*"]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "tests.settings"
+
+[tool.pylint.main]
+load-plugins = ["pylint_django"]
+django-settings-module = "tests.settings"
+ignore = [".build", "dist", "venv"]
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.messages_control]
+disable = [
+    "abstract-method",
+    "attribute-defined-outside-init",
+    "invalid-name",
+    "duplicate-code",
+    "implicit-str-concat",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "protected-access",
+    "too-many-ancestors",
+    "too-many-arguments",
+    "too-many-locals",
+    "too-many-positional-arguments",
+    "too-few-public-methods",
+    "unused-argument",
+    "keyword-arg-before-vararg",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests"]

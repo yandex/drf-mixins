@@ -1,0 +1,47 @@
+{
+  "skill_name": "yandex-drf-mixins-api-tests",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Generate tests for examples/courses/views/labapi.py:StudyModeLabViewSet --output /tmp/drf-mixins-skill-eval/study_modes",
+      "expected_output": "An executable test module covering URL, list, detail, create, validation error, patch, and delete through UrlNameMixin and GenericRequestMixin.",
+      "files": [
+        "examples/courses/views/labapi.py",
+        "examples/courses/urls.py"
+      ],
+      "assertions": [
+        "Every HTTP scenario uses GenericRequestMixin helpers.",
+        "The duplicate slug error uses check_errors=True and the unique code.",
+        "The test module passes in the courses example environment."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Cover examples/courses/views/labapi.py:PaginatedCourseLabViewSet with tests in /tmp/drf-mixins-skill-eval/pagination",
+      "expected_output": "Executable tests for default, limit, offset, empty, and all pagination plus the complete list JSON contract.",
+      "files": [
+        "examples/courses/views/labapi.py",
+        "examples/courses/urls.py"
+      ],
+      "assertions": [
+        "The suite covers all=true and an empty page.",
+        "list_request checks count and a complete JSON response in at least one scenario.",
+        "The test module passes in the courses example environment."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Create API tests for examples/courses/views/labapi.py:CourseProgramLabViewSet --output /tmp/drf-mixins-skill-eval/programs",
+      "expected_output": "Executable tests for both PUT upsert branches and JSON serializer or unknown-relation errors.",
+      "files": [
+        "examples/courses/views/labapi.py",
+        "examples/courses/urls.py"
+      ],
+      "assertions": [
+        "Creation through PUT expects HTTP 201 and update expects HTTP 200.",
+        "Both errors are checked by ErrorDetail.code through check_errors=True.",
+        "The test module passes in the courses example environment."
+      ]
+    }
+  ]
+}
