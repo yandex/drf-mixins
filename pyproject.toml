@@ -26,9 +26,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-adrf = ["adrf>=0.1.7,<0.2"]
+adrf = ["adrf>=0.1.14,<0.2"]
 dev = [
-    "adrf>=0.1.7,<0.2",
+    "adrf>=0.1.14,<0.2",
     "bandit>=1.7.10,<2",
     "black>=24.10,<26",
     "build>=1.2,<2",
