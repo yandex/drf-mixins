@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "Django>=4.0,<5.2",
-    "djangorestframework>=3.14,<3.16",
+    "djangorestframework>=3.18.0,<3.19",
 ]
 
 [project.optional-dependencies]
