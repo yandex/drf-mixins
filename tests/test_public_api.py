@@ -19,6 +19,9 @@ def test_drf_namespace_exports_the_supported_contract():
         "SerializePostParamsViewMixin",
         "UpdateOrCreateWithRetrieveModelMixin",
         "UpdateWithRetrieveModelMixin",
+        "ValidateDjango4xxResponseMixin",
+        "assert_django_4xx_response",
+        "validate_django_4xx_response_decorator",
     }
 
     assert expected <= set(drf.__all__)
@@ -41,10 +44,38 @@ def test_adrf_namespace_exports_the_supported_contract():
         "ASerializePostParamsViewMixin",
         "AUpdateOrCreateWithRetrieveModelMixin",
         "AUpdateWithRetrieveModelMixin",
+        "AValidateDjango4xxResponseMixin",
         "ActionSerializerMixin",
+        "assert_django_4xx_response",
+        "avalidate_django_4xx_response_decorator",
     }
 
     assert expected <= set(adrf.__all__)
+
+
+def test_drf_and_adrf_share_the_response_assertion_implementation():
+    pytest.importorskip("adrf")
+    from yandex_drf_mixins import adrf, drf
+
+    assert adrf.assert_django_4xx_response is drf.assert_django_4xx_response
+
+
+def test_schema_namespace_exports_the_error_response_contract():
+    from yandex_drf_mixins import drf, schema
+
+    expected = {
+        "DJANGO_4XX_ERROR_COMPONENT_NAME",
+        "DJANGO_4XX_ERROR_JSON_SCHEMA",
+        "DJANGO_4XX_ERROR_OPENAPI_EXAMPLES",
+        "DJANGO_4XX_ERROR_OPENAPI_REF",
+        "DJANGO_4XX_ERROR_OPENAPI_RESPONSE_REF",
+        "DJANGO_4XX_ERROR_OPENAPI_SCHEMAS",
+        "DJANGO_4XX_ERROR_RESPONSE_COMPONENT_NAME",
+        "DJANGO_ERROR_ITEM_COMPONENT_NAME",
+    }
+
+    assert set(schema.__all__) == expected
+    assert expected.isdisjoint(drf.__all__)
 
 
 def test_testing_namespace_exports_only_public_test_mixins():

@@ -226,12 +226,14 @@ Public components are separated by execution model:
 ```python
 from yandex_drf_mixins.drf import BaseModelViewSet
 from yandex_drf_mixins.adrf import ABaseModelViewSet
+from yandex_drf_mixins.schema import DJANGO_4XX_ERROR_JSON_SCHEMA
 from yandex_drf_mixins.testing import GenericRequestMixin, UrlNameMixin
 ```
 
 - `yandex_drf_mixins.drf` contains synchronous DRF components;
 - `yandex_drf_mixins.adrf` contains ADRF components, with asynchronous classes
   prefixed by `A`;
+- `yandex_drf_mixins.schema` contains shared JSON Schema and OpenAPI contracts;
 - `yandex_drf_mixins.testing` contains API test mixins;
 - `yandex_drf_mixins.base` is internal and must not be imported by applications.
 
@@ -266,6 +268,8 @@ Common request helper arguments:
   delete;
 - `num_queries`: expected SQL query count; `None` disables the check;
 - `check_errors=True`: recursively compare DRF error codes;
+- `validate_4xx_response`: validate Django/DRF 4xx response bodies against the
+  library error JSON Schema; pass `False` to opt out for a specific request;
 - `data`: JSON request body.
 
 Available methods:
@@ -293,6 +297,111 @@ In synchronous tests, an explicit `num_queries` uses Django's native
 `assertNumQueries()`. The check is unreliable inside an event loop, so it is
 ignored there with a `RuntimeWarning`. Pass `num_queries=None` when SQL budgets
 are intentionally not checked.
+
+## Django/DRF 4xx response validation
+
+A valid Django/DRF error response is a list or object whose leaves are strings;
+nested lists and objects are supported. The validator ignores responses outside
+the 400–499 range.
+
+### Validate responses in tests
+
+`GenericRequestMixin` validates every 4xx response body by default. This schema
+check is independent from `check_errors=True`: schema validation checks the
+response structure, while `check_errors` compares stable `ErrorDetail.code`
+values.
+
+```python
+from rest_framework import status
+from rest_framework.test import APITestCase
+
+from yandex_drf_mixins.testing import GenericRequestMixin
+
+
+class CourseDetailTestCase(GenericRequestMixin, APITestCase):
+    def test_missing_course(self):
+        self.detail_request(
+            "/api/courses/404/",
+            status_code=status.HTTP_404_NOT_FOUND,
+            check_errors=True,
+            expected={"detail": "not_found"},
+        )
+```
+
+Pass `validate_4xx_response=False` only when a particular endpoint intentionally
+uses a different response contract:
+
+```python
+self.make_request(
+    "/legacy-endpoint/",
+    status_code=status.HTTP_400_BAD_REQUEST,
+    validate_4xx_response=False,
+)
+```
+
+Use `assert_django_4xx_response(response)` to perform the same strict check
+without the request helpers:
+
+```python
+from yandex_drf_mixins.drf import assert_django_4xx_response
+
+response = self.client.post("/api/courses/", data={})
+assert_django_4xx_response(response)
+```
+
+### Validate production responses per view
+
+Add `ValidateDjango4xxResponseMixin` before the DRF view or viewset class in the
+inheritance list. Only views that include the mixin are validated.
+
+Strict mode is the default: an invalid 4xx body raises `AssertionError` from
+`finalize_response()`. Use it when an invalid error contract must fail the
+request immediately:
+
+```python
+from rest_framework.viewsets import ModelViewSet
+
+from yandex_drf_mixins.drf import ValidateDjango4xxResponseMixin
+
+
+class CourseViewSet(ValidateDjango4xxResponseMixin, ModelViewSet):
+    pass
+```
+
+ADRF views use the equivalent async namespace mixin:
+
+```python
+from adrf.viewsets import ModelViewSet
+
+from yandex_drf_mixins.adrf import AValidateDjango4xxResponseMixin
+
+
+class AsyncCourseViewSet(AValidateDjango4xxResponseMixin, ModelViewSet):
+    pass
+```
+
+For an observation period in production, use soft mode. It logs the schema
+violation with the HTTP status, JSON path, reason, and response body, then
+returns the original 4xx response unchanged:
+
+```python
+from rest_framework.viewsets import ModelViewSet
+
+from yandex_drf_mixins.drf import ValidateDjango4xxResponseMixin
+
+
+class CourseViewSet(ValidateDjango4xxResponseMixin, ModelViewSet):
+    raise_django_4xx_response_validation_error = False
+```
+
+`validate_django_4xx_response_decorator` provides the same behavior for
+synchronous request methods. ADRF users can wrap asynchronous methods with
+`avalidate_django_4xx_response_decorator` from `yandex_drf_mixins.adrf`.
+
+The public `DJANGO_4XX_ERROR_*` constants are available from
+`yandex_drf_mixins.schema` for publishing the corresponding OpenAPI schemas,
+examples, and references. They are shared by the DRF and ADRF validators rather
+than re-exported from either execution-model namespace.
 
 ## Action-specific serializers
 
