@@ -406,15 +406,20 @@ class CourseSearchView(SerializeGetParamsViewMixin, APIView):
 
 - `SerializeGetParamsViewMixin` serializes `request.query_params`;
 - `SerializePostParamsViewMixin` serializes `request.data`;
+- `SerializeParamsBaseViewMixin` provides the common `params_serializer` and
+  `validated_params` properties for custom parameter sources;
 - `params_serializer_class` selects the serializer;
 - `params_raise_exception` controls `is_valid(raise_exception=...)`;
 - `params_serializer_many=True` collects query parameters into a list of objects;
-- `validated_params` is evaluated lazily and cached.
+- `params_serializer` is validated on access; both it and `validated_params`
+  are evaluated lazily and cached.
 
 ### ADRF
 
-`ASerializeGetParamsViewMixin` and `ASerializePostParamsViewMixin` use the same
-configuration contract but expose the result asynchronously:
+`ASerializeParamsBaseViewMixin`, `ASerializeGetParamsViewMixin`, and
+`ASerializePostParamsViewMixin` use the same configuration contract but expose
+the validated serializer through `await aparams_serializer()` and its data
+through `await avalidated_params()`:
 
 ```python
 class AsyncCourseSearchView(ASerializeGetParamsViewMixin, APIView):
