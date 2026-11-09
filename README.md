@@ -243,6 +243,7 @@ from yandex_drf_mixins.testing import GenericRequestMixin, UrlNameMixin
 
 Set `URL_NAME` and use:
 
+- `get_url_name()` to return the route name and optionally select it dynamically;
 - `get_url(*args, **kwargs)` to call Django `reverse()`;
 - `assertURLNameEqual(url, base_url=None, args=None, kwargs=None)` to check that a
   named route matches the expected URL.

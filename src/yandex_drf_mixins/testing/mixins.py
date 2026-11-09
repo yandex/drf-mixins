@@ -14,8 +14,11 @@ from yandex_drf_mixins.base.testing import UnorderedList, num_queries_context
 class UrlNameMixin:
     URL_NAME = ""
 
+    def get_url_name(self) -> str:
+        return self.URL_NAME
+
     def get_url(self, *args, **kwargs) -> str:
-        return reverse(self.URL_NAME, args=args, kwargs=kwargs)
+        return reverse(self.get_url_name(), args=args, kwargs=kwargs)
 
     def assertURLNameEqual(  # noqa: N802
         self, url: str, base_url: str | None = None, args: list[Any] | None = None, kwargs: dict[str, Any] | None = None
