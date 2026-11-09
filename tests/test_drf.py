@@ -15,6 +15,7 @@ from yandex_drf_mixins.drf import (
     LimitOffsetAllPagination,
     ListWithAdditionalDataMixin,
     SerializeGetParamsViewMixin,
+    SerializeParamsBaseViewMixin,
     SerializePostParamsViewMixin,
 )
 
@@ -126,6 +127,19 @@ class ParamsSerializer(serializers.Serializer):
 
 
 class ParamsContractTests(TestCase):
+    def test_base_mixin_exposes_validated_params_serializer(self):
+        class View(SerializeParamsBaseViewMixin):
+            params_serializer_class = ParamsSerializer
+
+            @property
+            def params(self):
+                return {"value": 42}
+
+        view = View()
+
+        self.assertEqual(view.params_serializer.validated_data, {"value": 42})
+        self.assertIs(view.params_serializer, view.params_serializer)
+
     def test_get_params_are_validated_and_cached(self):
         request = Request(APIRequestFactory().get("/?value=42"))
 

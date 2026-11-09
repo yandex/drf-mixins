@@ -98,11 +98,15 @@ class DeleteProtectedModelMixin:
             raise ProtectedValidationError(message) from exc
 
 
-class SerializeGetParamsViewMixin(GetParamsMixin, ValidatedParamsMixin):
+class SerializeParamsBaseViewMixin(ValidatedParamsMixin):
     pass
 
 
-class SerializePostParamsViewMixin(PostParamsMixin, ValidatedParamsMixin):
+class SerializeGetParamsViewMixin(GetParamsMixin, SerializeParamsBaseViewMixin):
+    pass
+
+
+class SerializePostParamsViewMixin(PostParamsMixin, SerializeParamsBaseViewMixin):
     pass
 
 

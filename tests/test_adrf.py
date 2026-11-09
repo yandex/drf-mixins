@@ -19,6 +19,7 @@ from yandex_drf_mixins.adrf import (  # noqa: E402
     ALimitOffsetAllPagination,
     AListModelMixin,
     ASerializeGetParamsViewMixin,
+    ASerializeParamsBaseViewMixin,
     AUpdateWithRetrieveModelMixin,
 )
 from yandex_drf_mixins.base.permissions import acheck_object_permissions  # noqa: E402
@@ -156,6 +157,21 @@ class ParamsSerializer(serializers.Serializer):
 
 
 class AsyncParamsContractTests(SimpleTestCase):
+    async def test_base_mixin_exposes_validated_params_serializer(self):
+        class View(ASerializeParamsBaseViewMixin):
+            params_serializer_class = ParamsSerializer
+
+            @property
+            def params(self):
+                return {"value": 42}
+
+        view = View()
+        serializer = await view.aparams_serializer()
+
+        self.assertEqual(serializer.validated_data, {"value": 42})
+        self.assertIs(serializer, await view.aparams_serializer())
+        self.assertEqual(await view.avalidated_params(), {"value": 42})
+
     async def test_avalidated_params_returns_validated_data(self):
         class View(ASerializeGetParamsViewMixin):
             params_serializer_class = ParamsSerializer

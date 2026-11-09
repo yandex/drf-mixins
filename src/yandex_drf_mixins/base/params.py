@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Any, Type
 
 from asgiref.sync import sync_to_async
@@ -28,19 +29,25 @@ class ParamsBaseMixin:
 
 class ValidatedParamsMixin(ParamsBaseMixin):
     @property
+    def params_serializer(self) -> BaseSerializer:
+        serializer = self._get_params_serializer()
+        serializer.is_valid(raise_exception=self.params_raise_exception)
+        return serializer
+
+    @cached_property
     def validated_params(self) -> Any:
-        if not hasattr(self, "_validated_params"):
-            serializer = self._get_params_serializer()
-            serializer.is_valid(raise_exception=self.params_raise_exception)
-            self._validated_params = serializer.validated_data
-        return self._validated_params
+        return self.params_serializer.validated_data
 
 
 class AValidatedParamsMixin(ParamsBaseMixin):
+    async def aparams_serializer(self) -> BaseSerializer:
+        serializer = self._get_params_serializer()
+        await sync_to_async(serializer.is_valid)(raise_exception=self.params_raise_exception)
+        return serializer
+
     async def avalidated_params(self) -> Any:
         if not hasattr(self, "_validated_params"):
-            serializer = self._get_params_serializer()
-            await sync_to_async(serializer.is_valid)(raise_exception=self.params_raise_exception)
+            serializer = await self.aparams_serializer()
             self._validated_params = serializer.validated_data
         return self._validated_params
 

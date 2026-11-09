@@ -134,11 +134,15 @@ class ADeleteProtectedModelMixin:
             raise ProtectedValidationError(message) from exc
 
 
-class ASerializeGetParamsViewMixin(GetParamsMixin, AValidatedParamsMixin):
+class ASerializeParamsBaseViewMixin(AValidatedParamsMixin):
     pass
 
 
-class ASerializePostParamsViewMixin(PostParamsMixin, AValidatedParamsMixin):
+class ASerializeGetParamsViewMixin(GetParamsMixin, ASerializeParamsBaseViewMixin):
+    pass
+
+
+class ASerializePostParamsViewMixin(PostParamsMixin, ASerializeParamsBaseViewMixin):
     pass
 
 
