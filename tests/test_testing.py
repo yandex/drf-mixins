@@ -14,6 +14,13 @@ class UrlNameContractTests(UrlNameMixin, TestCase):
     def test_get_url_reverses_configured_name(self):
         self.assertEqual(self.get_url(), "/ping/")
 
+    def test_get_url_name_can_be_overridden_dynamically(self):
+        class DynamicUrlNameMixin(UrlNameMixin):
+            def get_url_name(self):
+                return "ping"
+
+        self.assertEqual(DynamicUrlNameMixin().get_url(), "/ping/")
+
 
 class GenericRequestContractTests(GenericRequestMixin, TestCase):
     def test_num_queries_is_not_checked_by_default(self):
