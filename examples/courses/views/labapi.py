@@ -1,6 +1,10 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
-from yandex_drf_mixins.drf import BaseModelViewSet, LimitOffsetAllPagination
+from yandex_drf_mixins.drf import (
+    BaseModelViewSet,
+    LimitOffsetAllPagination,
+    ValidateDjango4xxResponseMixin,
+)
 
 from ..models import (
     Course,
@@ -25,7 +29,7 @@ class ExampleLimitOffsetAllPagination(LimitOffsetAllPagination):
     default_limit = 2
 
 
-class CourseLabViewSet(BaseModelViewSet):
+class CourseLabViewSet(ValidateDjango4xxResponseMixin, BaseModelViewSet):
     queryset = Course.objects.select_related("author").order_by("id")
     serializer_class = CourseRetrieveSerializer
     serializer_classes = {

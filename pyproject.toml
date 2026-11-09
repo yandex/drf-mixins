@@ -23,6 +23,7 @@ classifiers = [
 dependencies = [
     "Django>=4.0,<5.3",
     "djangorestframework>=3.14,<3.16",
+    "jsonschema>=3.2,<5",
 ]
 
 [project.optional-dependencies]
@@ -49,6 +50,7 @@ dev = [
     "pytest>=8.3,<10",
     "pytest-asyncio>=0.24,<2",
     "pytest-django>=4.9,<5",
+    "types-jsonschema>=3.2,<5",
 ]
 
 [project.urls]

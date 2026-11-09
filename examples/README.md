@@ -25,3 +25,15 @@ DJANGO_SETTINGS_MODULE=example_settings \
 remaining models. Their historical migrations are disabled for the isolated
 test run; the example's own `0001_initial.py` is checked separately with
 `makemigrations --check --dry-run`.
+
+## Validating 4xx responses
+
+`courses.views.labapi.CourseLabViewSet` demonstrates production validation by
+placing `ValidateDjango4xxResponseMixin` before the DRF base viewset. Every 4xx
+response finalized by that viewset is therefore checked against the shared
+Django error-response schema.
+
+For tests, `courses.tests.test_api.CourseApiTestCase` shows both supported
+forms: request helpers inherited from `GenericRequestMixin` validate 4xx
+responses by default, while direct `APIClient` calls can pass their response to
+`assert_django_4xx_response` explicitly.

@@ -3,6 +3,7 @@ from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
+from yandex_drf_mixins.drf import assert_django_4xx_response
 from yandex_drf_mixins.testing import GenericRequestMixin, UrlNameMixin
 
 from ..models import Course, CourseBlock, CourseCategory
@@ -110,6 +111,18 @@ class CourseApiTestCase(UrlNameMixin, GenericRequestMixin, APITestCase):
             check_errors=True,
             expected={"slug": ["unique"]},
         )
+
+    def test_direct_client_response_matches_django_4xx_contract(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            self.get_url(),
+            data={"slug": self.course.slug, "name": "Duplicate"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIs(assert_django_4xx_response(response), response)
 
     def test_update_returns_retrieve_serializer(self):
         self.client.force_authenticate(self.user)

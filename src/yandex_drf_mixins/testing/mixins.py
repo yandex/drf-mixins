@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.exceptions import ErrorDetail
 from rest_framework.response import Response
 
+from yandex_drf_mixins.base.error_response import assert_django_4xx_response
 from yandex_drf_mixins.base.testing import UnorderedList, num_queries_context
 
 
@@ -27,6 +28,10 @@ class UrlNameMixin:
 
 
 class GenericRequestMixin:
+    def _validate_4xx_response(self, response: Response, validate_4xx_response: bool) -> None:
+        if validate_4xx_response:
+            assert_django_4xx_response(response)
+
     def list_request(
         self,
         url: str,
@@ -39,11 +44,13 @@ class GenericRequestMixin:
         check_errors: bool = False,
         check_order: bool = True,
         status_code: int | None = None,
+        validate_4xx_response: bool = True,
     ) -> Response:
         status_code = status.HTTP_200_OK if status_code is None else status_code
         with num_queries_context(self, num_queries):
             response = self.client.get(url, format="json")
         self.assertEqual(response.status_code, status_code)
+        self._validate_4xx_response(response, validate_4xx_response)
         if check_errors:
             self.assert_errors(response.data, expected)
             return response
@@ -81,12 +88,14 @@ class GenericRequestMixin:
         num_queries: int | None = None,
         status_code: int | None = None,
         check_errors: bool = False,
+        validate_4xx_response: bool = True,
     ) -> Response:
         status_code = status.HTTP_200_OK if status_code is None else status_code
         request_method = getattr(self.client, method)
         with num_queries_context(self, num_queries):
             response = request_method(url, data=data, format="json")
         self.assertEqual(response.status_code, status_code, response.content)
+        self._validate_4xx_response(response, validate_4xx_response)
         if check_errors:
             try:
                 self.assert_errors(response.data, expected)
@@ -129,12 +138,14 @@ class GenericRequestMixin:
         method: str = "delete",
         expected: Any = None,
         check_errors: bool = False,
+        validate_4xx_response: bool = True,
     ) -> Response:
         status_code = status.HTTP_204_NO_CONTENT if status_code is None else status_code
         request_method = getattr(self.client, method)
         with num_queries_context(self, num_queries):
             response = request_method(url)
         self.assertEqual(response.status_code, status_code, response.data)
+        self._validate_4xx_response(response, validate_4xx_response)
         if check_errors:
             self.assert_errors(response.data, expected)
         return response

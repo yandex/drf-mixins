@@ -52,6 +52,64 @@ class GenericRequestContractTests(GenericRequestMixin, TestCase):
 
         self.assertEqual(response.data["count"], 5)
 
+    def test_request_helpers_call_4xx_validation_hook(self):
+        calls = []
+
+        class Client:
+            def get(self, *args, **kwargs):
+                return SimpleNamespace(status_code=400, data=[], content=b"")
+
+            def post(self, *args, **kwargs):
+                return SimpleNamespace(status_code=400, data={}, content=b"")
+
+            def delete(self, *args, **kwargs):
+                return SimpleNamespace(status_code=400, data={}, content=b"")
+
+        self.client = Client()
+
+        def validate_4xx_response(response, enabled):
+            calls.append((response.status_code, enabled))
+
+        self._validate_4xx_response = validate_4xx_response
+
+        self.list_request(
+            "/",
+            expected=[],
+            pagination=False,
+            check_ids=False,
+            status_code=400,
+        )
+        self.make_request("/", method="post", status_code=400, validate_4xx_response=False)
+        self.delete_request("/", status_code=400)
+
+        self.assertEqual(calls, [(400, True), (400, False), (400, True)])
+
+    def test_request_helpers_validate_4xx_response_by_default(self):
+        class Client:
+            def post(self, *args, **kwargs):
+                return SimpleNamespace(status_code=400, data=None, content=b"")
+
+        self.client = Client()
+
+        with self.assertRaises(AssertionError):
+            self.make_request("/", method="post", status_code=400)
+
+    def test_request_helpers_can_skip_4xx_response_validation(self):
+        class Client:
+            def post(self, *args, **kwargs):
+                return SimpleNamespace(status_code=400, data=None, content=b"")
+
+        self.client = Client()
+
+        response = self.make_request(
+            "/",
+            method="post",
+            status_code=400,
+            validate_4xx_response=False,
+        )
+
+        self.assertIsNone(response.data)
+
 
 class AsyncNumQueriesContractTests(GenericRequestMixin, TestCase):
     async def test_explicit_num_queries_is_ignored_with_runtime_warning(self):

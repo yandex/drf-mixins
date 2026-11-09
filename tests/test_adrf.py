@@ -1,4 +1,5 @@
 import asyncio
+from unittest.mock import patch
 
 import pytest
 from django.core.exceptions import ImproperlyConfigured
@@ -9,6 +10,7 @@ from django.utils.translation import gettext, override
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail, ValidationError
 from rest_framework.request import Request
+from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
 
 pytest.importorskip("adrf")
@@ -21,6 +23,8 @@ from yandex_drf_mixins.adrf import (  # noqa: E402
     ASerializeGetParamsViewMixin,
     ASerializeParamsBaseViewMixin,
     AUpdateWithRetrieveModelMixin,
+    AValidateDjango4xxResponseMixin,
+    avalidate_django_4xx_response_decorator,
 )
 from yandex_drf_mixins.base.permissions import acheck_object_permissions  # noqa: E402
 
@@ -180,6 +184,54 @@ class AsyncParamsContractTests(SimpleTestCase):
         view.request = Request(APIRequestFactory().get("/?value=11"))
 
         self.assertEqual(await view.avalidated_params(), {"value": 11})
+
+
+class AsyncErrorResponseContractTests(SimpleTestCase):
+    async def test_async_decorator_validates_response(self):
+        response = Response({"detail": "Not found."}, status=404)
+
+        class Client(AValidateDjango4xxResponseMixin):
+            @avalidate_django_4xx_response_decorator
+            async def request(self):
+                return response
+
+        self.assertIs(await Client().request(), response)
+
+    async def test_async_decorator_rejects_invalid_response(self):
+        class Client(AValidateDjango4xxResponseMixin):
+            @avalidate_django_4xx_response_decorator
+            async def request(self):
+                return Response(None, status=400)
+
+        with self.assertRaises(AssertionError):
+            await Client().request()
+
+    @patch("yandex_drf_mixins.base.error_response.logger")
+    async def test_async_decorator_logs_invalid_response_in_soft_mode(self, logger):
+        class Client(AValidateDjango4xxResponseMixin):
+            raise_django_4xx_response_validation_error = False
+
+            @avalidate_django_4xx_response_decorator
+            async def request(self):
+                return Response(None, status=400)
+
+        response = await Client().request()
+
+        self.assertEqual(response.status_code, 400)
+        logger.error.assert_called_once()
+        self.assertEqual(logger.error.call_args.args[0], "%s")
+        self.assertEqual(logger.error.call_args.kwargs, {"exc_info": True})
+
+    def test_adrf_mixin_validates_finalized_response(self):
+        class BaseView:
+            def finalize_response(self, request, response, *args, **kwargs):
+                return response
+
+        class View(AValidateDjango4xxResponseMixin, BaseView):
+            pass
+
+        with self.assertRaises(AssertionError):
+            View().finalize_response(None, Response(None, status=400))
 
 
 class AsyncQuerysetContractTests(SimpleTestCase):
