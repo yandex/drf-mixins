@@ -1,100 +1,89 @@
 ---
 name: yandex-drf-mixins-release
-description: "Prepare and publish a new yandex-drf-mixins version to PyPI. Use this skill for release, publish, upload, and version-bump requests. It updates the version, runs the quality gate, builds and verifies artifacts automatically; the irreversible twine upload is always left to the operator."
+description: "Prepare and trigger an automated yandex-drf-mixins release. Use this skill for release, publish, tag, and version-bump requests. It updates and verifies the version, builds and tests artifacts, creates a version-bump PR, and triggers the protected tag-to-PyPI-to-GitHub-Release workflow after explicit authorization."
 allowed-tools: Bash, Read, Glob, Grep, Edit, Write
 argument-hint: "[new version, for example 0.2.0]"
 ---
 
 # Release yandex-drf-mixins
 
-Prepare a new `yandex-drf-mixins` version for the public PyPI. Automate
-all reversible work and stop before publication.
+Prepare a new `yandex-drf-mixins` version and publish it through the protected
+GitHub Actions workflow in `.github/workflows/release.yml`.
 
-## Responsibility boundary
+## Release contract
 
-- Perform steps 1–7 automatically: verify the environment and index, update the
-  version, run the quality gate, then build and inspect the artifacts.
-- Do not run `python -m twine upload` under any circumstances, including after
-  the operator says to continue or grants permissions.
-- Stop at step 8, show the operator the single publication command, and wait for
-  them to run it manually and report the result.
-- After the operator reports a successful upload, perform step 9 automatically.
-- Never open or read `~/.pypirc`, access keys, secret keys, or other credentials.
+The release flow is:
 
-Only upload requires manual control because it irreversibly reserves the version
-number. All prior work is reproducible and must be completed by the agent.
+1. prepare and merge a version-bump pull request;
+2. create and push the matching `v<version>` tag on the merged commit;
+3. let GitHub Actions test and build the tagged source;
+4. publish the distributions to PyPI with OIDC Trusted Publishing;
+5. create a GitHub Release only after the PyPI job succeeds.
+
+Never run `python -m twine upload` locally and never read or create `.pypirc` or
+long-lived PyPI credentials. Publication belongs exclusively to the protected
+CI job. Pushing the release tag irreversibly starts publication, so do it only
+when the operator explicitly requests a release or explicitly approves the tag.
+
+## One-time setup prerequisite
+
+Before the first automated release, the operator must configure:
+
+- a PyPI Trusted Publisher for owner `yandex`, repository `drf-mixins`,
+  workflow `release.yml`, and environment `pypi`;
+- a protected GitHub environment named `pypi`, preferably with a required
+  reviewer and deployment restricted to release tags;
+- protection for the `v*` tag namespace so only release maintainers can create
+  tags.
+
+If these settings have not been confirmed, prepare the pull request and local
+artifacts, but stop before pushing the tag and show the exact missing setup.
 
 ## Input
 
-Resolve the library root relative to this skill. Read the target PEP 440 version
-from the arguments. If it is missing, ask one question and stop.
+Read the target PEP 440 version from the request. If it is missing and cannot be
+unambiguously inferred from an existing version-bump pull request, ask one
+question and stop.
 
 Read:
 
 - `pyproject.toml` for the current version, dependencies, and quality commands;
 - `src/yandex_drf_mixins/__init__.py` for `__version__`;
-- `README.md` for the current local verification workflow.
+- `README.md` for the current verification and release workflow;
+- `.github/workflows/release.yml` for the actual publication contract.
 
-Do not assume that the version is already updated. Use the absolute project root
-and substitute the concrete target version for every `<VERSION>` placeholder.
+At the start, report the current and target versions. Keep the tag push in a
+separate command so its publication effect remains explicit and auditable.
 
-At the start, report the current and target versions. During steps 1–7, provide
-short progress updates and stop on any failure. Keep upload separate from all
-other commands so it remains an explicit operator action.
-
-## 1. Verify the environment and access
-
-Run:
-
-```bash
-cd <ABSOLUTE_PROJECT_ROOT>
-git status --short
-python --version
-python -m pip --version
-python -m twine --version
-test -s ~/.pypirc && echo '.pypirc exists' || echo '.pypirc is missing'
-```
-
-Verify or explain to the operator when needed:
-
-- the package name is `yandex-drf-mixins`;
-- API tokens are issued at `https://pypi.org/manage/account/token/`;
-- the `pypi` section in `~/.pypirc` must point to
-  `https://upload.pypi.org/legacy/`;
-- protect the file with `chmod 400 ~/.pypirc`;
-- never paste `.pypirc` contents into chat or print them in the terminal.
-
-Install twine when it is unavailable:
-
-```bash
-python -m pip install 'twine>=5,<8'
-```
-
-## 2. Confirm that the version is absent from PyPI
+## 1. Confirm that the version is available
 
 ```bash
 python -m pip index versions \
   --index-url https://pypi.org/simple/ \
   yandex-drf-mixins
+git ls-remote --tags origin "refs/tags/v<VERSION>"
+gh release view "v<VERSION>" --repo yandex/drf-mixins
 ```
 
-Stop if the target version already exists. Upload error `400 BAD REQUEST` usually
-means that the version is already reserved.
+The target version, tag, and GitHub Release must all be absent. Stop if any of
+them already exists. Never retry a partially failed publication blindly.
 
-## 3. Update the version
+## 2. Update the version
 
-Update `pyproject.toml` and `src/yandex_drf_mixins/__init__.py` with the regular
-editing tool. Do not modify them if both already contain the target version.
+Update both declarations with the regular editing tool:
+
+- `pyproject.toml`: `version = "<VERSION>"`;
+- `src/yandex_drf_mixins/__init__.py`: `__version__ = "<VERSION>"`.
 
 ```bash
-cd <ABSOLUTE_PROJECT_ROOT>
-rg '^(version =|__version__ =)' pyproject.toml src/yandex_drf_mixins/__init__.py
+rg '^(version =|__version__ =)' \
+  pyproject.toml src/yandex_drf_mixins/__init__.py
 git diff -- pyproject.toml src/yandex_drf_mixins/__init__.py
 ```
 
-Both files must contain the same version.
+Both files must contain exactly the target version.
 
-## 4. Run the quality gate
+## 3. Run the quality gate
 
 ```bash
 python -m pytest
@@ -106,11 +95,9 @@ PYTHONPATH=.:src python -m pylint src/yandex_drf_mixins
 python -m bandit -q -r src
 ```
 
-Stop on any failure and do not proceed to the build.
+Stop on any failure.
 
-## 5. Build and inspect isolated artifacts
-
-Substitute the target version into the filenames:
+## 4. Build and inspect isolated artifacts
 
 ```bash
 RELEASE_DIR="$(mktemp -d /tmp/yandex-drf-mixins-release.XXXXXX)"
@@ -118,64 +105,66 @@ python -m build --outdir "$RELEASE_DIR"
 python -m twine check \
   "$RELEASE_DIR/yandex_drf_mixins-<VERSION>-py3-none-any.whl" \
   "$RELEASE_DIR/yandex_drf_mixins-<VERSION>.tar.gz"
-python -m zipfile -l "$RELEASE_DIR/yandex_drf_mixins-<VERSION>-py3-none-any.whl"
+python -m zipfile -l \
+  "$RELEASE_DIR/yandex_drf_mixins-<VERSION>-py3-none-any.whl"
 ```
 
 The wheel must contain `yandex_drf_mixins/py.typed`, the `drf`, `adrf`, and
 `testing` namespaces, and the internal `base` package. It must not contain the
 old `drf_mixins` package.
 
-## 6. Test the wheel on minimum and maximum Python versions
+## 5. Test the wheel on the supported range boundaries
 
-When `python3.10` and `python3.13` are available, run:
+When `python3.10` and `python3.13` are available, install the wheel into clean
+virtual environments and run the test suite exactly as documented in README.
+If either interpreter is unavailable, report the untested boundary and do not
+call the release fully verified.
 
-```bash
-python3.10 -m venv "$RELEASE_DIR/py310"
-"$RELEASE_DIR/py310/bin/pip" install \
-  "$RELEASE_DIR/yandex_drf_mixins-<VERSION>-py3-none-any.whl" pytest pytest-django
-PYTHONPATH=. DJANGO_SETTINGS_MODULE=tests.settings \
-  "$RELEASE_DIR/py310/bin/python" -m pytest -q
+## 6. Create and merge the version-bump pull request
 
-python3.13 -m venv "$RELEASE_DIR/py313"
-"$RELEASE_DIR/py313/bin/pip" install \
-  "$RELEASE_DIR/yandex_drf_mixins-<VERSION>-py3-none-any.whl[adrf]" \
-  pytest pytest-django
-PYTHONPATH=. DJANGO_SETTINGS_MODULE=tests.settings \
-  "$RELEASE_DIR/py313/bin/python" -m pytest -q
-```
+The release pull request must contain only the version declarations and any
+explicitly requested release notes. Commit, push, and create the pull request
+only when the request authorizes repository publication. Wait for required CI
+and merge without bypassing branch protection.
 
-If either interpreter is unavailable, explicitly report the untested part of the
-range and do not call the release fully verified.
+After merge, fetch `origin/main`, identify the exact merged commit, and verify
+that both version declarations on that commit still match `<VERSION>`.
 
-## 7. Show the final operator checkpoint
+## 7. Final checkpoint before publication
 
-Before upload, report:
+Report:
 
-- absolute paths to both artifacts;
-- test and linter results;
-- confirmation that both version declarations match;
-- wheel verification results on Python 3.10 and 3.13;
-- `git status --short` and release-related changes;
-- a warning that the next command irreversibly reserves the version number.
+- the merged commit SHA;
+- the target tag `v<VERSION>`;
+- test, quality, build, and wheel-verification results;
+- confirmation that PyPI, git tags, and GitHub Releases do not already contain
+  the target version;
+- confirmation that the PyPI Trusted Publisher and protected `pypi`
+  environment are configured.
 
-Do not continue to upload automatically. Preparation and verification must be
-complete at this point, not left for the operator.
+Do not push the tag unless publication has been explicitly authorized.
 
-## 8. Publication command for the operator
+## 8. Trigger the automated release
 
-Show this command as the final standalone shell block:
+Create the tag on the verified merged commit and push it as a separate action:
 
 ```bash
-python -m twine upload --repository pypi \
-  "$RELEASE_DIR/yandex_drf_mixins-<VERSION>-py3-none-any.whl" \
-  "$RELEASE_DIR/yandex_drf_mixins-<VERSION>.tar.gz"
+git tag -s "v<VERSION>" "<MERGED_SHA>" -m "Release <VERSION>"
+git push origin "v<VERSION>"
 ```
 
-Do not run it. End the turn and wait for the operator's result.
+If signed-tag support is unavailable, stop and ask the operator whether to use
+an annotated tag; do not silently downgrade the release tag.
 
-## 9. Verify the published release automatically
+The tag starts `.github/workflows/release.yml`. Do not upload artifacts through
+another path while the workflow is running.
 
-After the operator reports success, run:
+## 9. Monitor and verify the release
+
+Wait for the complete release workflow. On failure, report the failed job and
+its direct URL. Do not recreate the tag, reuse the version, or publish manually.
+
+After success, independently verify:
 
 ```bash
 python -m pip index versions \
@@ -189,16 +178,20 @@ python3.13 -m venv "$VERIFY_DIR/venv"
   'yandex-drf-mixins[adrf]==<VERSION>'
 "$VERIFY_DIR/venv/bin/python" -c \
   'import yandex_drf_mixins; print(yandex_drf_mixins.__version__)'
+
+gh release view "v<VERSION>" \
+  --repo yandex/drf-mixins \
+  --json tagName,url,isDraft,isPrerelease,assets
 ```
 
-The final command must print the exact target version.
+The installed package must print the exact target version, and the GitHub
+Release must be published with both the wheel and source distribution attached.
 
-## Upload failures
+## Failure handling
 
-- `400 BAD REQUEST`: the version already exists; choose a new version.
-- `401 UNAUTHORIZED`: verify credentials in `.pypirc` without displaying them.
-- `403 FORBIDDEN`: verify that the API token is allowed to publish this project
-  and that the account is an owner or maintainer of the package.
-
-After a failure, never retry blindly. First ask the operator to verify whether
-the version appeared in the index.
+- A PyPI conflict means the version is already reserved; never overwrite it.
+- A Trusted Publishing failure means the PyPI publisher identity, workflow
+  filename, or GitHub environment does not match the configured trust policy.
+- If PyPI succeeds but GitHub Release creation fails, rerun only the failed
+  GitHub Actions job or create the release from the existing tag and the exact
+  workflow artifacts. Never republish the PyPI version.
