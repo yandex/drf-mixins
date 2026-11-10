@@ -651,7 +651,7 @@ Run commands from the repository root. For the complete suite, including the
 ADRF contract, create an isolated environment and install development dependencies:
 
 ```bash
-python3.13 -m venv venv
+python3.14 -m venv venv
 source venv/bin/activate
 python3 -m pip install -e '.[dev]'
 python3 -m pytest
@@ -676,9 +676,11 @@ python3 -m pytest \
   tests/test_release_skill.py
 ```
 
-Repeat the full suite on Python 3.10 to check the minimum supported version. If
-ADRF is not installed, ADRF-specific tests are skipped while DRF and testing
-contracts must still pass.
+The CI and release workflows test the supported boundaries and current upstream
+combinations explicitly, including Python 3.15 with Django 6.1 and DRF 3.18.
+For local boundary checks, repeat the wheel tests on Python 3.10 and Python
+3.15. If ADRF is not installed, ADRF-specific tests are skipped while DRF and
+testing contracts must still pass.
 
 ## Development
 
@@ -694,9 +696,26 @@ python3 -m bandit -q -r src
 python3 -m build
 ```
 
-Build and test the wheel locally in LMS before publishing. Publication is a
-separate explicitly confirmed step.
+Build and test the wheel locally in LMS before publishing.
 
-Use `.agents/yandex-drf-mixins-release/skill.md` to prepare a release. The skill
-performs reversible preparation and verification automatically, but never runs
-the irreversible `twine upload` command.
+## Releases
+
+Releases are published automatically by `.github/workflows/release.yml`. The
+workflow is triggered by a `v<version>` tag, verifies that the tag, project, and
+package versions match, repeats the test and quality gates, builds and checks
+the distributions, and publishes them to PyPI with Trusted Publishing. A
+GitHub Release is created with the same artifacts only after the PyPI job
+succeeds.
+
+One-time repository setup is required:
+
+1. Add a PyPI Trusted Publisher for owner `yandex`, repository `drf-mixins`,
+   workflow `release.yml`, and environment `pypi`.
+2. Create a protected GitHub environment named `pypi`, require an appropriate
+   reviewer, and restrict deployments to release tags.
+3. Protect the `v*` tag namespace so only release maintainers can create tags.
+
+Use `.agents/yandex-drf-mixins-release/skill.md` to prepare a version bump,
+verify the release candidate, and create the release tag after its pull request
+has been merged. Pushing the tag is the publication trigger and must remain an
+explicitly authorized action.
