@@ -28,10 +28,15 @@ pip install 'yandex-drf-mixins[adrf]'
 
 Supported versions:
 
-- Python 3.10–3.13;
-- Django 4.0–5.1;
-- Django REST Framework 3.14–3.15;
+- Python 3.10–3.15;
+- Django 4.0–6.1;
+- Django REST Framework 3.14–3.18;
 - ADRF 0.1.7+ within the 0.1.x series.
+
+The CI matrix uses only combinations supported by the upstream projects. In
+particular, Django 6.0+ requires Python 3.12+, Django 6.1 is used for Python
+3.15, and ADRF requires Django 4.1+. Django 4.0 therefore remains supported for
+the synchronous DRF components only.
 
 The package includes a `py.typed` marker, so its public API types are available to
 mypy and other PEP 561-compatible type checkers.
