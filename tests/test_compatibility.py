@@ -28,6 +28,10 @@ def test_ci_covers_the_new_runtime_boundaries() -> None:
         'drf: "~=3.18.0"',
         "adrf~=0.1.0",
         "Python 3.10 / Django 4.0 / DRF 3.14 (core)",
+        "          - name: Python 3.10\n",
+        "          - name: Python 3.11\n",
+        "          - name: Python 3.12\n",
+        "          - name: Python 3.13\n",
     )
     for fragment in required_fragments:
         assert fragment in content

@@ -27,22 +27,22 @@ jobs:
             django: "~=4.1.0"
             drf: "~=3.14.0"
             adrf: "adrf==0.1.7"
-          - name: Python 3.10 / Django 5.2 / DRF 3.18 / ADRF latest
+          - name: Python 3.10
             python-version: "3.10"
             django: "~=5.2.0"
             drf: "~=3.18.0"
             adrf: "adrf~=0.1.0"
-          - name: Python 3.11 / Django 5.2 / DRF 3.18 / ADRF latest
+          - name: Python 3.11
             python-version: "3.11"
             django: "~=5.2.0"
             drf: "~=3.18.0"
             adrf: "adrf~=0.1.0"
-          - name: Python 3.12 / Django 6.0 / DRF 3.18 / ADRF latest
+          - name: Python 3.12
             python-version: "3.12"
             django: "~=6.0.0"
             drf: "~=3.18.0"
             adrf: "adrf~=0.1.0"
-          - name: Python 3.13 / Django 6.1 / DRF 3.18 / ADRF latest
+          - name: Python 3.13
             python-version: "3.13"
             django: "~=6.1.0"
             drf: "~=3.18.0"
