@@ -25,6 +25,7 @@ def test_release_skill_covers_the_operator_workflow() -> None:
         "pypi.org/simple/",
         "pyproject.toml",
         "__version__",
+        "python3.15",
     )
     for fragment in required_fragments:
         assert fragment in content
@@ -47,3 +48,20 @@ def test_release_workflow_publishes_pypi_before_github_release() -> None:
 
     assert "python -m twine upload" not in content
     assert content.index("pypa/gh-action-pypi-publish@release/v1") < content.index("gh release create")
+
+
+def test_release_workflow_covers_supported_runtime_boundaries() -> None:
+    content = WORKFLOW_PATH.read_text()
+
+    required_fragments = (
+        "Python 3.10 / Django 4.0 / DRF 3.14 (core)",
+        "Python 3.10 / Django 4.1 / DRF 3.14 / ADRF 0.1.7",
+        "Python 3.15 / Django 6.1 / DRF 3.18 / ADRF latest",
+        'python-version: "3.14"',
+        'django: "~=6.1.0"',
+        'drf: "~=3.18.0"',
+        "adrf~=0.1.0",
+        "needs:\n      - compatibility\n      - build",
+    )
+    for fragment in required_fragments:
+        assert fragment in content

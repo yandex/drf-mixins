@@ -115,7 +115,7 @@ old `drf_mixins` package.
 
 ## 5. Test the wheel on the supported range boundaries
 
-When `python3.10` and `python3.13` are available, install the wheel into clean
+When `python3.10` and `python3.15` are available, install the wheel into clean
 virtual environments and run the test suite exactly as documented in README.
 If either interpreter is unavailable, report the untested boundary and do not
 call the release fully verified.
@@ -172,7 +172,7 @@ python -m pip index versions \
   yandex-drf-mixins
 
 VERIFY_DIR="$(mktemp -d /tmp/yandex-drf-mixins-verify.XXXXXX)"
-python3.13 -m venv "$VERIFY_DIR/venv"
+python3.15 -m venv "$VERIFY_DIR/venv"
 "$VERIFY_DIR/venv/bin/pip" install \
   --index-url https://pypi.org/simple/ \
   'yandex-drf-mixins[adrf]==<VERSION>'

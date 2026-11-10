@@ -651,7 +651,7 @@ Run commands from the repository root. For the complete suite, including the
 ADRF contract, create an isolated environment and install development dependencies:
 
 ```bash
-python3.13 -m venv venv
+python3.14 -m venv venv
 source venv/bin/activate
 python3 -m pip install -e '.[dev]'
 python3 -m pytest
@@ -676,9 +676,11 @@ python3 -m pytest \
   tests/test_release_skill.py
 ```
 
-Repeat the full suite on Python 3.10 to check the minimum supported version. If
-ADRF is not installed, ADRF-specific tests are skipped while DRF and testing
-contracts must still pass.
+The CI and release workflows test the supported boundaries and current upstream
+combinations explicitly, including Python 3.15 with Django 6.1 and DRF 3.18.
+For local boundary checks, repeat the wheel tests on Python 3.10 and Python
+3.15. If ADRF is not installed, ADRF-specific tests are skipped while DRF and
+testing contracts must still pass.
 
 ## Development
 
