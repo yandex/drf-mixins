@@ -31,6 +31,30 @@ def test_release_skill_covers_the_operator_workflow() -> None:
         assert fragment in content
 
 
+def test_release_skill_requires_author_checkpoints_by_default() -> None:
+    content = SKILL_PATH.read_text()
+    normalized = " ".join(content.split())
+
+    assert "checkpoints by default" in content.lower()
+    assert "without checkpoints in the initial invocation" in normalized
+    assert "Stop and wait for the reply" in content
+    assert "initial request to release" in content
+    assert "stage-completion report" in content
+    assert "absolute local file links" in content
+    assert "direct CI run/check links" in content
+    assert "cannot pause it between build, PyPI and" in content
+
+    stages = (
+        "| Preflight (read-only; no approval needed) |",
+        "| Candidate preparation |",
+        "| Pull request |",
+        "| Merge |",
+        "| Tag and automated publication |",
+    )
+    positions = [content.index(stage) for stage in stages]
+    assert positions == sorted(positions)
+
+
 def test_release_workflow_publishes_pypi_before_github_release() -> None:
     content = WORKFLOW_PATH.read_text()
 
