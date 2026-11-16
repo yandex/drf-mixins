@@ -31,6 +31,44 @@ def test_release_skill_covers_the_operator_workflow() -> None:
         assert fragment in content
 
 
+def test_release_skill_requires_author_checkpoints_by_default() -> None:
+    content = SKILL_PATH.read_text()
+    normalized = " ".join(content.split())
+
+    assert "checkpoints by default" in content.lower()
+    assert "without checkpoints in the initial invocation" in normalized
+    assert "Stop and wait for the reply" in content
+    assert "initial request to release" in content
+    assert "stage-completion report" in content
+    assert "absolute local file links" in content
+    assert "direct CI run/check links" in content
+    assert "cannot pause it between build, PyPI and" in content
+
+    stages = (
+        "| Preflight (read-only; no approval needed) |",
+        "| Candidate preparation |",
+        "| Pull request |",
+        "| Merge |",
+        "| Tag and automated publication |",
+    )
+    positions = [content.index(stage) for stage in stages]
+    assert positions == sorted(positions)
+
+
+def test_release_skill_starts_with_a_plan_and_tracks_deviations() -> None:
+    content = SKILL_PATH.read_text()
+    plan = content.split("## Plan before execution", 1)[1].split("## Execution mode", 1)[0]
+
+    assert content.index("## Plan before execution") < content.index("## Execution mode and author checkpoints")
+    assert "first response, before running the preflight commands" in plan
+    assert "target version" in plan
+    assert "checkpoint mode" in plan
+    assert "checks and reviewable" in plan
+    assert "mark what is complete" in plan
+    assert "publish a revised plan before deviating" in plan
+    assert "also applies when the author explicitly" in plan
+
+
 def test_release_workflow_publishes_pypi_before_github_release() -> None:
     content = WORKFLOW_PATH.read_text()
 
