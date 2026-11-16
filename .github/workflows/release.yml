@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 concurrency:
   group: release-${{ github.ref }}
@@ -13,8 +14,20 @@ permissions:
   contents: read
 
 jobs:
+  verify-ref:
+    name: Verify release tag ref
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a version tag
+        run: |
+          if [[ "$GITHUB_REF_TYPE" != tag || "$GITHUB_REF_NAME" != v*.*.* ]]; then
+            echo "Release workflow requires a v<version> tag ref" >&2
+            exit 1
+          fi
+
   compatibility:
     name: ${{ matrix.name }}
+    needs: verify-ref
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -88,6 +101,7 @@ jobs:
 
   build:
     name: Build release distributions
+    needs: verify-ref
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -101,7 +115,10 @@ jobs:
       - name: Verify release commit and version
         run: |
           git fetch --no-tags origin main
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          main_commit="$(git rev-parse FETCH_HEAD)"
+          git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          test "$(git rev-list -n 1 "refs/tags/${GITHUB_REF_NAME}")" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$GITHUB_SHA" "$main_commit"
           python - <<'PY'
           import os
           import pathlib
@@ -146,13 +163,11 @@ jobs:
 
   publish:
     name: Publish to PyPI
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && needs.compatibility.result == 'success' && needs.build.result == 'success'
     needs:
       - compatibility
       - build
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/yandex-drf-mixins/
     permissions:
       id-token: write
     steps:
