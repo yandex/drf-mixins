@@ -1,29 +1,37 @@
 ---
 name: yandex-drf-mixins-release
-description: "Prepare and trigger an automated yandex-drf-mixins release with author-approved checkpoints by default. Use for release, publish, tag, and version-bump requests; an initial explicit no-checkpoints request can opt out of stage-by-stage approval, but publication still requires authorization."
+description: "Prepare and publish a yandex-drf-mixins release through separate tag-CI and manually dispatched publication stages, with author-approved checkpoints by default. Use for release, publish, tag, and version-bump requests; an initial explicit no-checkpoints request can opt out of stage-by-stage approval, but publication still requires authorization."
 allowed-tools: Bash, Read, Glob, Grep, Edit, Write
 argument-hint: "[new version, for example 0.2.0]"
 ---
 
 # Release yandex-drf-mixins
 
-Prepare a new `yandex-drf-mixins` version and publish it through the protected
-GitHub Actions workflow in `.github/workflows/release.yml`.
+Prepare a new `yandex-drf-mixins` version, validate its signed tag in CI, then
+publish it through a separately dispatched GitHub Actions run in
+`.github/workflows/release.yml`. GitHub Environments are unavailable on the
+`yandex` organization's legacy Silver plan, so the author checkpoint between
+tag CI and publication is mandatory in the default mode but is not a GitHub
+environment approval.
 
 ## Release contract
 
 The release flow is:
 
 1. prepare and merge a version-bump pull request;
-2. create and push the matching `v<version>` tag on the merged commit;
-3. let GitHub Actions test and build the tagged source;
-4. publish the distributions to PyPI with OIDC Trusted Publishing;
+2. create and push the matching signed `v<version>` tag on the merged commit;
+3. let the tag-triggered run test and build the source **without publishing**;
+4. after a separate author approval, manually dispatch the workflow on that
+   exact tag; it repeats the gates and builds before publishing to PyPI with
+   OIDC Trusted Publishing;
 5. create a GitHub Release only after the PyPI job succeeds.
 
 Never run `python -m twine upload` locally and never read or create `.pypirc` or
-long-lived PyPI credentials. Publication belongs exclusively to the protected
-CI job. Pushing the release tag irreversibly starts publication, so do it only
-when the operator explicitly requests a release or explicitly approves the tag.
+long-lived PyPI credentials. Publication belongs exclusively to the CI publish
+job. A tag push starts validation, not publication; only the separate manual
+`workflow_dispatch` run may publish. Both the tag push and the dispatch require
+their own authorization in checkpoint mode. Do not dispatch on a branch, an
+unverified tag, or before the tag CI and artifact review have succeeded.
 
 ## Plan before execution
 
@@ -54,18 +62,19 @@ The author is the person who requested this release, not the git commit author.
 In checkpoint mode, read-only inspection may start immediately. Before each
 next stage below, show the completed stage's result and ask the author for
 explicit approval of that **named next stage**. Stop and wait for the reply;
-the initial request to release, an approval for an earlier stage, and a GitHub
-environment approval are not approval for a later checkpoint. If the author
-changes the candidate, re-run affected checks and ask again against the new
-evidence. A refusal or missing reply leaves the release paused, not failed.
+the initial request to release and an approval for an earlier stage are not
+approval for a later checkpoint. If the author changes the candidate, re-run
+affected checks and ask again against the new evidence. A refusal or missing
+reply leaves the release paused, not failed.
 
 | Stage | Work after approval | Evidence to report before asking for the next stage |
 | --- | --- | --- |
 | Preflight (read-only; no approval needed) | Inspect current versions, remote main, PyPI, tags, releases, existing PRs and one-time setup. | Current/target version and links to the exact repository revision, PyPI project and any existing PR or tag. Ask to prepare the candidate. |
 | Candidate preparation | Update version declarations if needed; run quality checks, build/inspect artifacts and test the wheel on supported boundaries. Do not commit or push. | Results and limitations, candidate diff, absolute local links to the wheel, sdist and retained check logs, plus their hashes. Ask to publish the version-bump PR. |
 | Pull request | Commit and push only the authorized release-candidate changes; open or reuse the version-bump PR and wait for required CI. Do not merge. | PR and Files changed links, exact head commit, direct CI run/check links and results. Ask to merge. |
-| Merge | Merge without bypassing protection, fetch main and verify the merged version declarations. Do not push a tag. | Merged PR and exact merge-commit links, branch protection/CI outcome, plus the verified version. Ask to push the signed release tag. |
-| Tag and automated publication | Recheck version availability and setup, create/push the matching signed tag on the verified merge commit, then monitor the workflow through PyPI and GitHub Release. | Immediately report the tag and workflow run links; after completion report the direct jobs, PyPI version, GitHub Release/assets and independent installation result. |
+| Merge | Merge without bypassing protection, fetch main and verify the merged version declarations. Do not push a tag. | Merged PR and exact merge-commit links, branch protection/CI outcome, plus the verified version. Ask to push the signed release tag for CI only. |
+| Tag and CI | Recheck version availability and setup, create/push the matching signed tag on the verified merge commit, then wait for the tag-triggered compatibility and build jobs. Confirm PyPI and GitHub Release jobs were skipped. | Tag, exact commit, CI run and direct job links, results, build-artifact links and hashes. Ask for separate approval to dispatch publication on this exact tag. |
+| Manual publication | Recheck the tag, commit, PyPI availability and publisher identity, then dispatch `release.yml` on the exact tag. Monitor the complete run. | Direct publication run/job links, PyPI version, GitHub Release/assets and independent installation result. |
 
 Every stage-completion report must say what was done, what remains unverified,
 and provide direct links for the author to inspect **that stage's artifacts**.
@@ -89,15 +98,22 @@ request only to prepare or inspect does not authorize publication.
 
 Before the first automated release, the operator must configure:
 
-- a PyPI Trusted Publisher for owner `yandex`, repository `drf-mixins`,
-  workflow `release.yml`, and environment `pypi`;
-- a protected GitHub environment named `pypi`, preferably with a required
-  reviewer and deployment restricted to release tags;
+- a PyPI Trusted Publisher for owner `yandex`, repository `drf-mixins`, and
+  workflow `release.yml`, with its optional environment field **empty**;
 - protection for the `v*` tag namespace so only release maintainers can create
-  tags.
+  tags, with updates and deletions restricted;
+- protection of `main` with required CI and an independent approving review
+  for changes to the trusted release workflow. Review the effective branch
+  protection before relying on it; an agent approval is not a substitute.
 
 If these settings have not been confirmed, prepare the pull request and local
-artifacts, but stop before pushing the tag and show the exact missing setup.
+artifacts, but stop before pushing the tag and show the exact missing setup. On
+the legacy Silver plan, do not treat `environment: pypi` in a workflow as a
+protected environment. If tag protection is also unavailable, stop and ask for
+a separately reviewed security design; do not silently drop this gate.
+The existing PyPI publisher bound to environment `pypi` does not authorize the
+environment-free job: add and confirm the new publisher before dispatch, then
+remove the obsolete publisher after the transition is verified.
 
 ## Input
 
@@ -114,12 +130,13 @@ Read:
 
 After reading the version declarations, report the current and target versions
 and reconcile them with the initial plan. Keep the tag push in a separate
-command so its publication effect remains explicit and auditable.
+command so its tag-CI effect remains explicit and auditable.
 In checkpoint mode, apply the stages above to the numbered procedures below:
 sections 1 and the read-only parts of Input are preflight; sections 2–5 prepare
-the candidate; section 6 contains separate PR and merge stages; sections 7–9
-cover the tag and automated-publication stage. Section 7's report is the tag
-approval checkpoint, not permission to proceed by itself.
+the candidate; section 6 contains separate PR and merge stages; section 7 is
+the pre-tag checkpoint; section 8 is tag CI; sections 9–10 cover the separately
+authorized manual-publication stage. A tag approval is not a publication
+approval.
 
 ## 1. Confirm that the version is available
 
@@ -207,7 +224,7 @@ that both version declarations on that commit still match `<VERSION>`.
 In checkpoint mode, stop between PR/CI completion and merge. Do not treat a
 green CI run or the approval to open the PR as permission to merge.
 
-## 7. Final checkpoint before publication
+## 7. Final checkpoint before the tag
 
 Report:
 
@@ -216,16 +233,18 @@ Report:
 - test, quality, build, and wheel-verification results;
 - confirmation that PyPI, git tags, and GitHub Releases do not already contain
   the target version;
-- confirmation that the PyPI Trusted Publisher and protected `pypi`
-  environment are configured.
+- confirmation that the PyPI Trusted Publisher matches owner `yandex`, repo
+  `drf-mixins`, workflow `release.yml`, with **no environment**;
+- effective `main` review/CI protection and `v*` tag-creation protection.
 
 In checkpoint mode, ask for a fresh approval to push the exact tag on the exact
-merged commit, even if the initial request was to release. Do not push the tag
-unless publication has been explicitly authorized. The tag approval starts the
-entire automated workflow; the skill cannot pause it between build, PyPI and
-GitHub Release. Explain this consequence at the checkpoint.
+merged commit, even if the initial request was to release. The tag approval
+starts **only** the tag CI; it does not authorize publication. Do not push a
+tag while the old auto-publishing workflow is still active on its target commit.
+Verify the merged workflow's `publish` job is guarded by
+`github.event_name == 'workflow_dispatch'` before the push.
 
-## 8. Trigger the automated release
+## 8. Push the tag and review the tag CI
 
 Create the tag on the verified merged commit and push it as a separate action:
 
@@ -237,13 +256,50 @@ git push origin "v<VERSION>"
 If signed-tag support is unavailable, stop and ask the operator whether to use
 an annotated tag; do not silently downgrade the release tag.
 
-The tag starts `.github/workflows/release.yml`. Do not upload artifacts through
-another path while the workflow is running.
+The tag starts `.github/workflows/release.yml` in validation-only mode. Wait
+for the exact tag/commit's compatibility and build jobs to succeed, and verify
+that its PyPI and GitHub Release jobs were **skipped**, not merely pending. Read
+back the tag's dereferenced commit and collect the direct run/job URLs, retained
+build-artifact links and distribution hashes. Do not dispatch publication on a
+failed, cancelled, incomplete or different tag run.
 
-## 9. Monitor and verify the release
+If tag CI fails because the tagged source needs a code change, do not move or
+recreate the published tag; prepare a reviewed fix and choose a new version/tag.
+For an infrastructure-only failure, diagnose the direct job log and rerun the
+same tag CI only when its outcome is known. Never use a failed tag CI as a
+reason to upload locally.
 
-Wait for the complete release workflow. On failure, report the failed job and
-its direct URL. Do not recreate the tag, reuse the version, or publish manually.
+In checkpoint mode, report the tag CI evidence and ask for a **new, separate**
+approval to dispatch publication on the exact `v<VERSION>` tag. Stop here until
+the author replies. Pushing the tag was not approval to publish.
+
+## 9. Dispatch publication on the verified tag
+
+Immediately before dispatch, recheck that the remote tag still dereferences to
+the approved merge commit, its tag CI is green, PyPI and GitHub Release do not
+already contain the version, and the environment-free PyPI Trusted Publisher
+and repository protections are confirmed. A change in any of these facts
+invalidates the prior approval: report it and ask again. Never dispatch on
+`main` or a feature branch.
+
+```bash
+git ls-remote origin "refs/tags/v<VERSION>^{}"
+gh workflow run release.yml --repo yandex/drf-mixins --ref "v<VERSION>"
+```
+
+The dispatch starts the complete gate-and-publication run. Match the resulting
+run by event `workflow_dispatch`, exact tag ref, head commit and creation time;
+capture its run ID and URL. If the dispatch response is lost, read back before
+retrying so a second publication run is not started accidentally. The publish
+job receives `id-token: write` only after compatibility and build succeed.
+No long-lived token or local upload is allowed.
+
+## 10. Monitor and verify the release
+
+Wait for the complete **manual-dispatch** release run. On failure, report the
+failed job and its direct URL. Check PyPI and GitHub Release for a partial
+publication before any recovery; do not recreate the tag, reuse the version,
+dispatch again blindly or publish manually.
 
 After success, independently verify:
 
@@ -271,8 +327,11 @@ Release must be published with both the wheel and source distribution attached.
 ## Failure handling
 
 - A PyPI conflict means the version is already reserved; never overwrite it.
-- A Trusted Publishing failure means the PyPI publisher identity, workflow
-  filename, or GitHub environment does not match the configured trust policy.
+- A Trusted Publishing failure can mean the owner, repo, workflow filename or
+  optional environment claim does not match the environment-free PyPI record.
+  Read the direct publish-job log and PyPI state; never add a long-lived token.
+- A tag-triggered run must never reach PyPI. If it does, stop and report the
+  workflow violation before any further tag or dispatch.
 - If PyPI succeeds but GitHub Release creation fails, rerun only the failed
   GitHub Actions job or create the release from the existing tag and the exact
   workflow artifacts. Never republish the PyPI version.

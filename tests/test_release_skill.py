@@ -11,7 +11,9 @@ def test_release_skill_delegates_publication_to_ci() -> None:
     assert "allowed-tools: Bash, Read, Glob, Grep, Edit, Write" in content
     assert "never run `python -m twine upload`" in content.lower()
     assert ".github/workflows/release.yml" in content
-    assert "pushing the release tag irreversibly starts publication" in content.lower()
+    assert "a tag push starts validation, not publication" in content.lower()
+    assert "only the separate manual" in content.lower()
+    assert "`workflow_dispatch` run may publish" in content
 
 
 def test_release_skill_covers_the_operator_workflow() -> None:
@@ -22,6 +24,7 @@ def test_release_skill_covers_the_operator_workflow() -> None:
         "python -m build",
         "python -m twine check",
         'git push origin "v<VERSION>"',
+        'gh workflow run release.yml --repo yandex/drf-mixins --ref "v<VERSION>"',
         "pypi.org/simple/",
         "pyproject.toml",
         "__version__",
@@ -42,14 +45,16 @@ def test_release_skill_requires_author_checkpoints_by_default() -> None:
     assert "stage-completion report" in content
     assert "absolute local file links" in content
     assert "direct CI run/check links" in content
-    assert "cannot pause it between build, PyPI and" in content
+    assert "Pushing the tag was not approval to publish" in content
+    assert "the tag-triggered run test and build the source **without publishing**" in content
 
     stages = (
         "| Preflight (read-only; no approval needed) |",
         "| Candidate preparation |",
         "| Pull request |",
         "| Merge |",
-        "| Tag and automated publication |",
+        "| Tag and CI |",
+        "| Manual publication |",
     )
     positions = [content.index(stage) for stage in stages]
     assert positions == sorted(positions)
@@ -71,11 +76,13 @@ def test_release_skill_starts_with_a_plan_and_tracks_deviations() -> None:
 
 def test_release_workflow_publishes_pypi_before_github_release() -> None:
     content = WORKFLOW_PATH.read_text()
+    publish_job = content.split("\n  publish:\n", 1)[1].split("\n  github-release:\n", 1)[0]
 
     required_fragments = (
         'tags:\n      - "v*.*.*"',
-        "environment:\n      name: pypi",
-        "id-token: write",
+        "workflow_dispatch:",
+        "verify-ref:",
+        "needs: verify-ref",
         "pypa/gh-action-pypi-publish@release/v1",
         "needs: publish",
         'gh release create "$GITHUB_REF_NAME"',
@@ -84,8 +91,41 @@ def test_release_workflow_publishes_pypi_before_github_release() -> None:
     for fragment in required_fragments:
         assert fragment in content
 
+    assert "if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag'" in publish_job
+    assert "needs.compatibility.result == 'success'" in publish_job
+    assert "needs.build.result == 'success'" in publish_job
+    assert "id-token: write" in publish_job
+    assert "environment:" not in publish_job
+    assert content.count("id-token: write") == 1
     assert "python -m twine upload" not in content
     assert content.index("pypa/gh-action-pypi-publish@release/v1") < content.index("gh release create")
+
+
+def test_release_skill_preserves_separate_tag_and_publication_approvals() -> None:
+    content = SKILL_PATH.read_text()
+
+    assert "ask for a fresh approval to push the exact tag" in content
+    assert "The tag approval" in content
+    assert "does not authorize publication" in content
+    assert "ask for a **new, separate**" in content
+    assert "approval to dispatch publication" in content
+    assert "optional environment field **empty**" in content
+    assert "If tag protection is also unavailable, stop" in content
+
+
+def test_release_workflow_checks_ref_before_any_publishable_work() -> None:
+    content = WORKFLOW_PATH.read_text()
+    verify_job = content.split("\n  verify-ref:\n", 1)[1].split("\n  compatibility:\n", 1)[0]
+    build_job = content.split("\n  build:\n", 1)[1].split("\n  publish:\n", 1)[0]
+
+    assert '"$GITHUB_REF_TYPE" != tag' in verify_job
+    assert '"$GITHUB_REF_NAME" != v*.*.*' in verify_job
+    assert 'git rev-list -n 1 "refs/tags/${GITHUB_REF_NAME}"' in build_job
+    assert 'main_commit="$(git rev-parse FETCH_HEAD)"' in build_job
+    assert build_job.index('main_commit="$(git rev-parse FETCH_HEAD)"') < build_job.index(
+        'git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"'
+    )
+    assert 'git merge-base --is-ancestor "$GITHUB_SHA" "$main_commit"' in build_job
 
 
 def test_release_workflow_covers_supported_runtime_boundaries() -> None:
