@@ -55,6 +55,20 @@ def test_release_skill_requires_author_checkpoints_by_default() -> None:
     assert positions == sorted(positions)
 
 
+def test_release_skill_starts_with_a_plan_and_tracks_deviations() -> None:
+    content = SKILL_PATH.read_text()
+    plan = content.split("## Plan before execution", 1)[1].split("## Execution mode", 1)[0]
+
+    assert content.index("## Plan before execution") < content.index("## Execution mode and author checkpoints")
+    assert "first response, before running the preflight commands" in plan
+    assert "target version" in plan
+    assert "checkpoint mode" in plan
+    assert "checks and reviewable" in plan
+    assert "mark what is complete" in plan
+    assert "publish a revised plan before deviating" in plan
+    assert "also applies when the author explicitly" in plan
+
+
 def test_release_workflow_publishes_pypi_before_github_release() -> None:
     content = WORKFLOW_PATH.read_text()
 

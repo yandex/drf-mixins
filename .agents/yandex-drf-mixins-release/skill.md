@@ -25,6 +25,24 @@ long-lived PyPI credentials. Publication belongs exclusively to the protected
 CI job. Pushing the release tag irreversibly starts publication, so do it only
 when the operator explicitly requests a release or explicitly approves the tag.
 
+## Plan before execution
+
+In the first response, before running the preflight commands, give the author
+a concise ordered plan for this release. Name the target version (or mark it
+unknown), the checkpoint mode, the stages below, the checks and reviewable
+artifacts expected at each stage, and where author approval will be required.
+The plan is not itself an approval. After reading the repository, update any
+initially unknown version or already-completed stages in the plan.
+
+Work through that plan in order. In each stage report, mark what is complete,
+what remains, and which stage is next; link its evidence as specified below.
+On resumption, identify the current stage before acting. If new facts require
+a different version, scope, sequence, or validation, explain the reason and
+publish a revised plan before deviating. Re-run affected checks and obtain a
+fresh approval for any changed checkpoint; never rely on stale approval.
+This planning and progress contract also applies when the author explicitly
+selects the mode without checkpoints.
+
 ## Execution mode and author checkpoints
 
 Use **checkpoints by default**. Only an explicit request to run *without
@@ -94,8 +112,9 @@ Read:
 - `README.md` for the current verification and release workflow;
 - `.github/workflows/release.yml` for the actual publication contract.
 
-At the start, report the current and target versions. Keep the tag push in a
-separate command so its publication effect remains explicit and auditable.
+After reading the version declarations, report the current and target versions
+and reconcile them with the initial plan. Keep the tag push in a separate
+command so its publication effect remains explicit and auditable.
 In checkpoint mode, apply the stages above to the numbered procedures below:
 sections 1 and the read-only parts of Input are preflight; sections 2–5 prepare
 the candidate; section 6 contains separate PR and merge stages; sections 7–9
