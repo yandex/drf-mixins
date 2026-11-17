@@ -1,8 +1,10 @@
+import re
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parents[1]
 SKILL_PATH = PROJECT_ROOT / ".agents/yandex-drf-mixins-release/skill.md"
 WORKFLOW_PATH = PROJECT_ROOT / ".github/workflows/release.yml"
+CI_WORKFLOW_PATH = PROJECT_ROOT / ".github/workflows/ci.yml"
 
 
 def test_release_skill_delegates_publication_to_ci() -> None:
@@ -105,10 +107,28 @@ def test_github_release_job_checks_out_repository_before_gh_cli() -> None:
     content = WORKFLOW_PATH.read_text()
     release_job = content.split("\n  github-release:\n", 1)[1]
 
-    assert release_job.index("- uses: actions/checkout@v7") < release_job.index("- uses: actions/download-artifact@v5")
-    assert release_job.index("- uses: actions/download-artifact@v5") < release_job.index(
-        'gh release create "$GITHUB_REF_NAME"'
-    )
+    checkout = re.search(r"- uses: actions/checkout@v\d+", release_job)
+    download = re.search(r"- uses: actions/download-artifact@v\d+", release_job)
+
+    assert checkout is not None
+    assert download is not None
+    assert checkout.start() < download.start() < release_job.index('gh release create "$GITHUB_REF_NAME"')
+
+
+def test_ci_checks_release_artifact_transfer_with_matching_action_versions() -> None:
+    release_content = WORKFLOW_PATH.read_text()
+    ci_content = CI_WORKFLOW_PATH.read_text()
+
+    for action in ("upload-artifact", "download-artifact"):
+        pattern = rf"- uses: actions/{action}@(v\d+)"
+        release_versions = set(re.findall(pattern, release_content))
+        ci_versions = set(re.findall(pattern, ci_content))
+
+        assert len(release_versions) == 1
+        assert ci_versions == release_versions
+
+    assert "sha256sum dist/*.whl dist/*.tar.gz > dist/SHA256SUMS" in ci_content
+    assert "sha256sum -c dist/SHA256SUMS" in ci_content
 
 
 def test_release_skill_preserves_separate_tag_and_publication_approvals() -> None:
