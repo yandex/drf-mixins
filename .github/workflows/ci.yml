@@ -111,6 +111,26 @@ jobs:
         run: python -m build
       - name: Check distributions
         run: python -m twine check dist/*
+      - name: Record distribution checksums
+        run: sha256sum dist/*.whl dist/*.tar.gz > dist/SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-distributions-smoke
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  artifact-transfer:
+    name: Release artifact transfer smoke
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-distributions-smoke
+          path: dist/
+      - name: Verify downloaded distributions
+        run: sha256sum -c dist/SHA256SUMS
 
   wheel-without-adrf:
     name: Wheel without optional ADRF dependency
