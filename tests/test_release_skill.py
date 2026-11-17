@@ -101,6 +101,16 @@ def test_release_workflow_publishes_pypi_before_github_release() -> None:
     assert content.index("pypa/gh-action-pypi-publish@release/v1") < content.index("gh release create")
 
 
+def test_github_release_job_checks_out_repository_before_gh_cli() -> None:
+    content = WORKFLOW_PATH.read_text()
+    release_job = content.split("\n  github-release:\n", 1)[1]
+
+    assert release_job.index("- uses: actions/checkout@v7") < release_job.index("- uses: actions/download-artifact@v5")
+    assert release_job.index("- uses: actions/download-artifact@v5") < release_job.index(
+        'gh release create "$GITHUB_REF_NAME"'
+    )
+
+
 def test_release_skill_preserves_separate_tag_and_publication_approvals() -> None:
     content = SKILL_PATH.read_text()
 
