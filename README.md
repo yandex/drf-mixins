@@ -475,12 +475,13 @@ The default `aperform_create()` and `aperform_update()` implementations call
 an `instance`, otherwise the library raises `ImproperlyConfigured`. Asynchronous
 serializer data is read through the native `adrf.mixins.get_data()` helper.
 
-## Protected deletion
+## Protected and restricted deletion
 
 ### `DeleteProtectedModelMixin`
 
-The synchronous mixin converts Django `ValidationError` and `ProtectedError`
-into DRF errors. Protected-relation text is configured through class attributes:
+The synchronous mixin converts Django `ValidationError`, `ProtectedError`, and
+`RestrictedError` into DRF errors. Protected-relation text is configured through
+class attributes:
 
 ```python
 class CourseViewSet(BaseModelViewSet):
@@ -489,18 +490,20 @@ class CourseViewSet(BaseModelViewSet):
     protected_objects_limit = 1
 ```
 
-`protected_objects_limit` limits the number of protecting object names in the
+`protected_objects_limit` limits the number of related object names in the
 message. It defaults to `1`; `None` includes all names.
-`protected_object_default_name` is used when `ProtectedError` has no objects.
+`protected_object_default_name` is used when either deletion error has no objects.
 These settings are shared by synchronous and asynchronous mixins.
 
-`ProtectedError` is returned as one `ErrorDetail`, not a one-element list.
+`ProtectedError` and `RestrictedError` return HTTP 400 with one `ErrorDetail`,
+not a one-element list. Their detail codes are `protected` and `restricted`,
+respectively.
 
 ### `ADeleteProtectedModelMixin`
 
 The asynchronous version provides `adestroy()` and `aperform_destroy()`. Its
 default implementation calls `await instance.adelete()` and handles
-`ValidationError` and `ProtectedError` in the same way.
+`ValidationError`, `ProtectedError`, and `RestrictedError` in the same way.
 
 ## Query-parameter and request-body validation
 

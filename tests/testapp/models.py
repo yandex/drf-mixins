@@ -7,3 +7,7 @@ class Item(models.Model):
 
 class ProtectedChild(models.Model):
     item = models.ForeignKey(Item, on_delete=models.PROTECT)
+
+
+class RestrictedChild(models.Model):
+    item = models.ForeignKey(Item, on_delete=models.RESTRICT)

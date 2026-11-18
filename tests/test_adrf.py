@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 from django.core.exceptions import ImproperlyConfigured
-from django.db.models import ProtectedError
+from django.db.models import ProtectedError, RestrictedError
 from django.test import SimpleTestCase
 from django.utils.functional import Promise
 from django.utils.translation import gettext, override
@@ -26,6 +26,7 @@ from yandex_drf_mixins.adrf import (  # noqa: E402
     AValidateDjango4xxResponseMixin,
     avalidate_django_4xx_response_decorator,
 )
+from yandex_drf_mixins.base.exceptions import RestrictedValidationError  # noqa: E402
 from yandex_drf_mixins.base.permissions import acheck_object_permissions  # noqa: E402
 
 
@@ -73,6 +74,25 @@ class AsyncHooksContractTests(SimpleTestCase):
 
 
 class AsyncDeleteContractTests(SimpleTestCase):
+    async def test_restricted_error_is_converted_to_scalar_validation_error(self):
+        restricted = type(
+            "Restricted",
+            (),
+            {"_meta": type("Meta", (), {"verbose_name": "child"})()},
+        )()
+
+        class Instance:
+            async def adelete(self):
+                raise RestrictedError("restricted", {restricted})
+
+        with self.assertRaises(ValidationError) as raised:
+            await ADeleteProtectedModelMixin().aperform_destroy(Instance())
+
+        self.assertEqual(raised.exception.status_code, 400)
+        self.assertIsInstance(raised.exception.detail, ErrorDetail)
+        self.assertEqual(raised.exception.detail.code, "restricted")
+        self.assertIsInstance(raised.exception, RestrictedValidationError)
+
     def test_default_protected_messages_are_lazy_translations(self):
         self.assertIsInstance(ADeleteProtectedModelMixin.protected_error_message, Promise)
         self.assertIsInstance(ADeleteProtectedModelMixin.protected_object_default_name, Promise)

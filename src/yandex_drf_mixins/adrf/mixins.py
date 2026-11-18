@@ -7,7 +7,7 @@ from asgiref.sync import sync_to_async
 from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models
-from django.db.models import ProtectedError, QuerySet
+from django.db.models import ProtectedError, QuerySet, RestrictedError
 from django.http import Http404
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers, status
@@ -15,9 +15,9 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from yandex_drf_mixins.base.exceptions import ProtectedValidationError
+from yandex_drf_mixins.base.exceptions import ProtectedValidationError, RestrictedValidationError
 from yandex_drf_mixins.base.params import AValidatedParamsMixin, GetParamsMixin, PostParamsMixin
-from yandex_drf_mixins.base.protected import get_protected_object_name
+from yandex_drf_mixins.base.protected import format_deletion_error_message
 from yandex_drf_mixins.base.serializers import ActionSerializerBaseMixin
 
 
@@ -125,13 +125,21 @@ class ADeleteProtectedModelMixin:
         except DjangoValidationError as exc:
             raise ValidationError(detail=serializers.as_serializer_error(exc)) from exc
         except ProtectedError as exc:
-            object_name = get_protected_object_name(
+            message = format_deletion_error_message(
                 exc.protected_objects,
+                template=self.protected_error_message,
                 limit=self.protected_objects_limit,
                 default=self.protected_object_default_name,
             )
-            message = self.protected_error_message % {"object_name": object_name}
             raise ProtectedValidationError(message) from exc
+        except RestrictedError as exc:
+            message = format_deletion_error_message(
+                exc.restricted_objects,
+                template=self.protected_error_message,
+                limit=self.protected_objects_limit,
+                default=self.protected_object_default_name,
+            )
+            raise RestrictedValidationError(message) from exc
 
 
 class ASerializeParamsBaseViewMixin(AValidatedParamsMixin):

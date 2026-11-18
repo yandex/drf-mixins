@@ -10,9 +10,9 @@ from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
-from yandex_drf_mixins.base.exceptions import ProtectedValidationError
+from yandex_drf_mixins.base.exceptions import ProtectedValidationError, RestrictedValidationError
 from yandex_drf_mixins.base.params import GetParamsMixin, PostParamsMixin, ValidatedParamsMixin
-from yandex_drf_mixins.base.protected import get_protected_object_name
+from yandex_drf_mixins.base.protected import format_deletion_error_message
 from yandex_drf_mixins.base.serializers import ActionSerializerBaseMixin
 
 
@@ -89,13 +89,21 @@ class DeleteProtectedModelMixin:
         except DjangoValidationError as exc:
             raise ValidationError(detail=serializers.as_serializer_error(exc)) from exc
         except models.deletion.ProtectedError as exc:
-            object_name = get_protected_object_name(
+            message = format_deletion_error_message(
                 exc.protected_objects,
+                template=self.protected_error_message,
                 limit=self.protected_objects_limit,
                 default=self.protected_object_default_name,
             )
-            message = self.protected_error_message % {"object_name": object_name}
             raise ProtectedValidationError(message) from exc
+        except models.deletion.RestrictedError as exc:
+            message = format_deletion_error_message(
+                exc.restricted_objects,
+                template=self.protected_error_message,
+                limit=self.protected_objects_limit,
+                default=self.protected_object_default_name,
+            )
+            raise RestrictedValidationError(message) from exc
 
 
 class SerializeParamsBaseViewMixin(ValidatedParamsMixin):
