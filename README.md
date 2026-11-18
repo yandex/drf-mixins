@@ -475,7 +475,7 @@ The default `aperform_create()` and `aperform_update()` implementations call
 an `instance`, otherwise the library raises `ImproperlyConfigured`. Asynchronous
 serializer data is read through the native `adrf.mixins.get_data()` helper.
 
-## Protected deletion
+## Protected and restricted deletion
 
 ### `DeleteProtectedModelMixin`
 
@@ -490,13 +490,14 @@ class CourseViewSet(BaseModelViewSet):
     protected_objects_limit = 1
 ```
 
-`protected_objects_limit` limits the number of protecting object names in the
+`protected_objects_limit` limits the number of related object names in the
 message. It defaults to `1`; `None` includes all names.
 `protected_object_default_name` is used when either deletion error has no objects.
 These settings are shared by synchronous and asynchronous mixins.
 
 `ProtectedError` and `RestrictedError` return HTTP 400 with one `ErrorDetail`,
-not a one-element list.
+not a one-element list. Their detail codes are `protected` and `restricted`,
+respectively.
 
 ### `ADeleteProtectedModelMixin`
 

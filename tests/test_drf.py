@@ -91,7 +91,7 @@ class DeleteProtectedContractTests(TestCase):
         response = APIClient(raise_request_exception=False).delete(f"/items/{item.pk}/")
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data["detail"].code, "protected")
+        self.assertEqual(response.data["detail"].code, "restricted")
         self.assertIn("restricted child", response.json()["detail"])
         self.assertTrue(Item.objects.filter(pk=item.pk).exists())
 

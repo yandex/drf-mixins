@@ -26,6 +26,7 @@ from yandex_drf_mixins.adrf import (  # noqa: E402
     AValidateDjango4xxResponseMixin,
     avalidate_django_4xx_response_decorator,
 )
+from yandex_drf_mixins.base.exceptions import RestrictedValidationError  # noqa: E402
 from yandex_drf_mixins.base.permissions import acheck_object_permissions  # noqa: E402
 
 
@@ -89,7 +90,8 @@ class AsyncDeleteContractTests(SimpleTestCase):
 
         self.assertEqual(raised.exception.status_code, 400)
         self.assertIsInstance(raised.exception.detail, ErrorDetail)
-        self.assertEqual(raised.exception.detail.code, "protected")
+        self.assertEqual(raised.exception.detail.code, "restricted")
+        self.assertIsInstance(raised.exception, RestrictedValidationError)
 
     def test_default_protected_messages_are_lazy_translations(self):
         self.assertIsInstance(ADeleteProtectedModelMixin.protected_error_message, Promise)
