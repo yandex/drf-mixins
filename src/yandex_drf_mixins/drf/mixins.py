@@ -88,9 +88,12 @@ class DeleteProtectedModelMixin:
             return super().perform_destroy(instance)
         except DjangoValidationError as exc:
             raise ValidationError(detail=serializers.as_serializer_error(exc)) from exc
-        except models.deletion.ProtectedError as exc:
+        except (models.deletion.ProtectedError, models.deletion.RestrictedError) as exc:
+            related_objects = (
+                exc.protected_objects if isinstance(exc, models.deletion.ProtectedError) else exc.restricted_objects
+            )
             object_name = get_protected_object_name(
-                exc.protected_objects,
+                related_objects,
                 limit=self.protected_objects_limit,
                 default=self.protected_object_default_name,
             )

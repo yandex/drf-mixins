@@ -7,7 +7,7 @@ from asgiref.sync import sync_to_async
 from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models
-from django.db.models import ProtectedError, QuerySet
+from django.db.models import ProtectedError, QuerySet, RestrictedError
 from django.http import Http404
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers, status
@@ -124,9 +124,10 @@ class ADeleteProtectedModelMixin:
             await instance.adelete()
         except DjangoValidationError as exc:
             raise ValidationError(detail=serializers.as_serializer_error(exc)) from exc
-        except ProtectedError as exc:
+        except (ProtectedError, RestrictedError) as exc:
+            related_objects = exc.protected_objects if isinstance(exc, ProtectedError) else exc.restricted_objects
             object_name = get_protected_object_name(
-                exc.protected_objects,
+                related_objects,
                 limit=self.protected_objects_limit,
                 default=self.protected_object_default_name,
             )

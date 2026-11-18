@@ -1,13 +1,14 @@
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import ProtectedError, QuerySet
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from django.urls import path
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail, ValidationError
 from rest_framework.parsers import JSONParser
 from rest_framework.request import Request
-from rest_framework.test import APIRequestFactory
+from rest_framework.test import APIClient, APIRequestFactory
 
-from tests.testapp.models import Item, ProtectedChild
+from tests.testapp.models import Item, ProtectedChild, RestrictedChild
 from yandex_drf_mixins.drf import (
     ActionSerializerMixin,
     BaseModelViewSet,
@@ -38,6 +39,9 @@ class ItemViewSet(BaseModelViewSet):
     queryset = Item.objects.all()
     serializer_class = ItemWriteSerializer
     serializer_classes = {"retrieve": ItemRetrieveSerializer}
+
+
+urlpatterns = [path("items/<int:pk>/", ItemViewSet.as_view({"delete": "destroy"}))]
 
 
 class ActionSerializerContractTests(TestCase):
@@ -79,6 +83,18 @@ class RetrieveMutationContractTests(TestCase):
 
 
 class DeleteProtectedContractTests(TestCase):
+    @override_settings(ROOT_URLCONF=__name__)
+    def test_restricted_relation_returns_400_instead_of_server_error(self):
+        item = Item.objects.create(name="parent")
+        RestrictedChild.objects.create(item=item)
+
+        response = APIClient(raise_request_exception=False).delete(f"/items/{item.pk}/")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["detail"].code, "protected")
+        self.assertIn("restricted child", response.json()["detail"])
+        self.assertTrue(Item.objects.filter(pk=item.pk).exists())
+
     def test_protected_error_is_a_scalar_error_detail_and_uses_customizable_template(self):
         item = Item.objects.create(name="parent")
         ProtectedChild.objects.create(item=item)

@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 from django.core.exceptions import ImproperlyConfigured
-from django.db.models import ProtectedError
+from django.db.models import ProtectedError, RestrictedError
 from django.test import SimpleTestCase
 from django.utils.functional import Promise
 from django.utils.translation import gettext, override
@@ -73,6 +73,24 @@ class AsyncHooksContractTests(SimpleTestCase):
 
 
 class AsyncDeleteContractTests(SimpleTestCase):
+    async def test_restricted_error_is_converted_to_scalar_validation_error(self):
+        restricted = type(
+            "Restricted",
+            (),
+            {"_meta": type("Meta", (), {"verbose_name": "child"})()},
+        )()
+
+        class Instance:
+            async def adelete(self):
+                raise RestrictedError("restricted", {restricted})
+
+        with self.assertRaises(ValidationError) as raised:
+            await ADeleteProtectedModelMixin().aperform_destroy(Instance())
+
+        self.assertEqual(raised.exception.status_code, 400)
+        self.assertIsInstance(raised.exception.detail, ErrorDetail)
+        self.assertEqual(raised.exception.detail.code, "protected")
+
     def test_default_protected_messages_are_lazy_translations(self):
         self.assertIsInstance(ADeleteProtectedModelMixin.protected_error_message, Promise)
         self.assertIsInstance(ADeleteProtectedModelMixin.protected_object_default_name, Promise)
